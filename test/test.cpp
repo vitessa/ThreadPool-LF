@@ -1,7 +1,6 @@
 
 #include "../source/thread_pool.h"
 #include <iostream>
-#include <mutex>
 
 vitessa::CThreadPool tp;
 
