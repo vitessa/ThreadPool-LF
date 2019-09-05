@@ -9,16 +9,12 @@
 namespace vitessa
 {
 
-static const int DEFAULT_THREAD_POOL = 10;
-
 class CThreadPool
 {
 public:
 	CThreadPool() : _isStop(false)
 	{
-		for (int i=0; i<DEFAULT_THREAD_POOL; ++i) {
-			_seqThread.emplace_back( CThreadPool::route, this );
-		}
+		_seqThread.emplace_back( CThreadPool::route, this );
 	}
 	CThreadPool(int thread_num) : _isStop(false)
 	{
