@@ -14,12 +14,12 @@ class CThreadPool
 public:
     CThreadPool() : _isStop(false)
     {
-        _seqThread.emplace_back( CThreadPool::route, this );
+        _vecThread.emplace_back( CThreadPool::route, this );
     }
     CThreadPool(int thread_num) : _isStop(false)
     {
         for (int i=0; i<thread_num; ++i) {
-            _seqThread.emplace_back( CThreadPool::route, this );
+            _vecThread.emplace_back( CThreadPool::route, this );
         }
     }
     ~CThreadPool()
@@ -30,7 +30,7 @@ public:
         }
         _condFollower.notify_all();
         _condLeader.notify_all();
-        for (std::thread& t : _seqThread) {
+        for (std::thread& t : _vecThread) {
             t.join();
         }
     }
@@ -51,7 +51,7 @@ public:
                 throw std::runtime_error("spawn a stoped thread pool.");
             }
             
-            this->_seqTask.emplace([task](){(*task)();});
+            this->_queTask.emplace([task](){(*task)();});
         }
         
         this->_condLeader.notify_one();
@@ -71,17 +71,17 @@ private:
                 std::unique_lock<std::mutex> lock(tp->_mtx);
                 if (tp->_leaderId == std::thread::id()) { // Leader 
                     tp->_leaderId = std::this_thread::get_id();
-                    tp->_condLeader.wait(lock, [tp]{return tp->_isStop || !tp->_seqTask.empty();});
-                    if (tp->_seqTask.empty()) {
+                    tp->_condLeader.wait(lock, [tp]{return tp->_isStop || !tp->_queTask.empty();});
+                    if (tp->_queTask.empty()) {
                         return;
                     }
                     tp->_leaderId = std::thread::id();
-                    task = std::move(tp->_seqTask.front());
-                    tp->_seqTask.pop();
+                    task = std::move(tp->_queTask.front());
+                    tp->_queTask.pop();
                 }
                 else { // Follower
                     tp->_condFollower.wait(lock, [tp]{return tp->_isStop || tp->_leaderId == std::thread::id();});
-                    if (tp->_isStop && tp->_seqTask.empty()) {
+                    if (tp->_isStop && tp->_queTask.empty()) {
                             return;
                     }
                     continue;
@@ -95,8 +95,8 @@ private:
         }
     }
 private:
-    std::vector<std::thread> _seqThread;             // 线程组
-    std::queue< std::function<void()> > _seqTask;    // 任务队列
+    std::vector<std::thread> _vecThread;             // 线程组
+    std::queue< std::function<void()> > _queTask;    // 任务队列
     std::mutex _mtx;                                 // 互斥锁
     bool _isStop;                                    // 是否停止（析构函数用）
     std::condition_variable _condFollower;
