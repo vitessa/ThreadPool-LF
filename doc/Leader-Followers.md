@@ -1,5 +1,5 @@
 
-## 如何确定提拔线程
+### 8.5.7 如何确定提拔线程
 
 以下三种逻辑可以用来确定追随者如何被提拔为领导者：
 
@@ -16,24 +16,26 @@
 
 这种方法就是直接使用系统的同步工具，例如：信号量（semaphore）、条件变量（condition variable），这写同步工具都是由操作系统定义的顺序执行的。这种方法优点是，能有有效的对应系统的同步手段。
 
-下面为这种方法提供一个例程：
+下面为这种方法提供一个示例：
 
-    int LF_Thread_Pool::promote_new_leader(void)
-	{
-	    // Use Scoped Locing idion to acquire mutex
-	    // automatically in the constructor.
-	    std::unique_lock<std::mutex> lock(mutex_);
-	
-	    if (leader_thread_ != std::this_thread::get_id()) {
-	        // Error, only the leader thread can call this.
-	        return -1;
-	    }
+```c++
+int LF_Thread_Pool::promote_new_leader(void)
+{
+    // Use Scoped Locing idion to acquire mutex
+    // automatically in the constructor.
+    std::unique_lock<std::mutex> lock(mutex_);
 
-	    // Indicate that we're no longer the leader
-	    // and notify a <join> method to promote
-	    // the next follower.
-	    leader_thread_ = std::thread::id();
-	    followers_condition_.notify();
+    if (leader_thread_ != std::this_thread::get_id()) {
+        // Error, only the leader thread can call this.
+        return -1;
+    }
 
-		// Release mutex automatically in destructor.
-	}
+    // Indicate that we're no longer the leader
+    // and notify a <join> method to promote
+    // the next follower.
+    leader_thread_ = std::thread::id();
+    followers_condition_.notify();
+
+    // Release mutex automatically in destructor.
+}
+```
