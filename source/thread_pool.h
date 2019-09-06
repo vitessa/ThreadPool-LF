@@ -12,78 +12,96 @@ namespace vitessa
 class CThreadPool
 {
 public:
-	CThreadPool() : _isStop(false)
-	{
-		_seqThread.emplace_back( CThreadPool::route, this );
-	}
-	CThreadPool(int thread_num) : _isStop(false)
-	{
-		for (int i=0; i<thread_num; ++i) {
-			_seqThread.emplace_back( CThreadPool::route, this );
-		}
-	}
-	~CThreadPool()
-	{
-		{
-			std::unique_lock<std::mutex> lock(_mtx);
-			_isStop = true;
-		}
-		_cond.notify_all();
-		for (std::thread& t : _seqThread) {
-			t.join();
-		}
-	}
+    CThreadPool() : _isStop(false)
+    {
+        _seqThread.emplace_back( CThreadPool::route, this );
+    }
+    CThreadPool(int thread_num) : _isStop(false)
+    {
+        for (int i=0; i<thread_num; ++i) {
+            _seqThread.emplace_back( CThreadPool::route, this );
+        }
+    }
+    ~CThreadPool()
+    {
+        {
+            std::unique_lock<std::mutex> lock(_mtx);
+            _isStop = true;
+        }
+        _condFollower.notify_all();
+        _condLeader.notify_all();
+        for (std::thread& t : _seqThread) {
+            t.join();
+        }
+    }
 
-	template <class Fn, class... Args>
-	std::future<typename std::result_of<Fn(Args...)>::type> spawn(Fn&& fx, Args&&... ax)
-	{
-		using return_type = typename std::result_of<Fn(Args...)>::type;
-		auto task = std::make_shared< std::packaged_task<return_type()> > (
-			std::bind(std::forward<Fn>(fx), std::forward<Args>(ax)...) );
-		
-		std::future<return_type> res = task->get_future();
-		
-		{
-			std::unique_lock<std::mutex> lock(this->_mtx);
-			
-			if (this->_isStop) {
-				throw std::runtime_error("spawn a stoped thread pool.");
-			}
-			
-			this->_seqTask.emplace([task](){(*task)();});
-		}
-		
-		this->_cond.notify_one();
-		return res;
-	}
-	
+    template <class Fn, class... Args>
+    std::future<typename std::result_of<Fn(Args...)>::type> spawn(Fn&& fx, Args&&... ax)
+    {
+        using return_type = typename std::result_of<Fn(Args...)>::type;
+        auto task = std::make_shared< std::packaged_task<return_type()> > (
+            std::bind(std::forward<Fn>(fx), std::forward<Args>(ax)...) );
+        
+        std::future<return_type> res = task->get_future();
+        
+        {
+            std::unique_lock<std::mutex> lock(this->_mtx);
+            
+            if (this->_isStop) {
+                throw std::runtime_error("spawn a stoped thread pool.");
+            }
+            
+            this->_seqTask.emplace([task](){(*task)();});
+        }
+        
+        this->_condLeader.notify_one();
+        return res;
+    }
+    
 private:
-	// ½ûÖ¹¿½±´
-	CThreadPool(const CThreadPool& rhs){};
-	// Ïß³ÌÔ­ĞÍ
-	static void route(CThreadPool* tp)
-	{
-		for (;;)
-		{
-			std::function<void()> task;
-			{   // lock_guard start
-				std::unique_lock<std::mutex> lock(tp->_mtx);
-				tp->_cond.wait(lock, [tp]{return tp->_isStop || !tp->_seqTask.empty();});
-				if (tp->_seqTask.empty()) {
-					return;
-				}
-				task = std::move(tp->_seqTask.front());
-				tp->_seqTask.pop();
-			}   // lock_guard end
-			task();
-		}
-	}
+    // ç¦æ­¢æ‹·è´
+    CThreadPool(const CThreadPool& rhs){};
+    // çº¿ç¨‹åŸå‹
+    static void route(CThreadPool* tp)
+    {
+        for (;;)
+        {
+            std::function<void()> task;
+            {   // lock_guard start
+                std::unique_lock<std::mutex> lock(tp->_mtx);
+                if (tp->_leaderId == std::thread::id()) { // Leader 
+                    tp->_leaderId = std::this_thread::get_id();
+                    tp->_condLeader.wait(lock, [tp]{return tp->_isStop || !tp->_seqTask.empty();});
+                    if (tp->_seqTask.empty()) {
+                        return;
+                    }
+                    tp->_leaderId = std::thread::id();
+                    task = std::move(tp->_seqTask.front());
+                    tp->_seqTask.pop();
+                }
+                else { // Follower
+                    tp->_condFollower.wait(lock, [tp]{return tp->_isStop || tp->_leaderId == std::thread::id();});
+                    if (tp->_isStop && tp->_seqTask.empty()) {
+                            return;
+                    }
+                    continue;
+                }
+            }   // lock_guard end
+            
+            //Call Follower to become Leader
+            tp->_condFollower.notify_one();
+            // Worker
+            task();
+        }
+    }
 private:
-	std::vector<std::thread> _seqThread;             // Ïß³Ì×é
-	std::queue< std::function<void()> > _seqTask;    // ÈÎÎñ¶ÓÁĞ
-	std::mutex _mtx;                                 // »¥³âËø
-	std::condition_variable _cond;                   // Ìõ¼ş±äÁ¿
-	bool _isStop;                                    // ÊÇ·ñÍ£Ö¹£¨Îö¹¹º¯ÊıÓÃ£©
+    std::vector<std::thread> _seqThread;             // çº¿ç¨‹ç»„
+    std::queue< std::function<void()> > _seqTask;    // ä»»åŠ¡é˜Ÿåˆ—
+    std::mutex _mtx;                                 // äº’æ–¥é”
+    bool _isStop;                                    // æ˜¯å¦åœæ­¢ï¼ˆææ„å‡½æ•°ç”¨ï¼‰
+    std::condition_variable _condFollower;
+    std::condition_variable _condLeader;
+    std::thread::id _leaderId;
 };
 
 }
