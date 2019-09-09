@@ -1,5 +1,4 @@
-#ifndef __VITESSA_THREAD_POOL_H__
-#define __VITESSA_THREAD_POOL_H__
+#pragma once
 
 #include <vector>
 #include <queue>
@@ -311,4 +310,3 @@ private:
 
 }
 
-#endif  //__VITESSA_THREAD_POOL_H__
