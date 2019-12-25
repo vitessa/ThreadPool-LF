@@ -54,7 +54,7 @@ public:
     template<typename Fn>
     static std::future<typename std::result_of<Fn()>::type> spawn(CThreadPool& tp, Fn func)
     {
-        typedef std::result_of<Fn()>::type rt_type;
+        typedef typename std::result_of<Fn()>::type rt_type;
 
         auto task = std::make_shared<std::packaged_task<rt_type()>>(std::forward<Fn>(func));
         std::future<rt_type> res = task->get_future();
