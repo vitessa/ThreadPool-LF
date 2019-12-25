@@ -18,7 +18,10 @@
  *                      \rt  返回future<return_type>
  */
 
-#define THREAD_POOL_SPAWN(tp, fn, ...) CThreadPool::spawn(tp,std::bind(fn, ##__VA_ARGS__))
+#define THREAD_POOL_SPAWN(tp, fn, ...) vitessa::CThreadPool::spawn(tp,std::bind(fn, ##__VA_ARGS__))
+
+namespace vitessa
+{
 
 class CThreadPool
 {
@@ -111,3 +114,5 @@ private:
     std::condition_variable _condLeader;
     std::thread::id _leaderId;
 };
+
+} // namespace vitessa
