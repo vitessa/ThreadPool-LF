@@ -18,7 +18,7 @@ using namespace std;
 // 测试函数
 void printMsg(const string& msg)
 {
-    std::cout << msg << std::endl;
+    cout << msg.c_str() << endl;
 }
 
 // 测试函数
