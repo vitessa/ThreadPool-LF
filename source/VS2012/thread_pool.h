@@ -27,12 +27,14 @@ public:
     {
         _vecThread.emplace_back(CThreadPool::route, this);
     }
+
     CThreadPool(int thread_num) : _isStop(false)
     {
         for (int i=0; i<thread_num; ++i) {
             _vecThread.emplace_back(CThreadPool::route, this);
         }
     }
+
     ~CThreadPool()
     {
         {
@@ -104,7 +106,7 @@ private:
     std::vector<std::thread> _vecThread;        // 线程组
     std::queue<std::function<void()>> _queTask; // 任务队列
     std::mutex _mtx;                            // 互斥锁
-    bool _isStop;                                // 是否停止（析构函数用）
+    bool _isStop;                               // 是否停止（析构函数用）
     std::condition_variable _condFollower;
     std::condition_variable _condLeader;
     std::thread::id _leaderId;
