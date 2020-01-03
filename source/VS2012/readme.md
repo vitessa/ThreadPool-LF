@@ -10,12 +10,6 @@ VS2012只支持部分C++11。
 using namespace std;
 
 // 测试函数
-#include "thread_pool.h"
-#include <iostream>
-
-using namespace std;
-
-// 测试函数
 void printMsg(const string& msg)
 {
     cout << msg.c_str() << endl;
