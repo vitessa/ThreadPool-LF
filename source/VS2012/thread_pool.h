@@ -3,6 +3,7 @@
 #include <vector>
 #include <queue>
 #include <future>
+#include <atomic>
 
 /*
  * @class 线程池
@@ -71,6 +72,12 @@ public:
         return res;
     }
 
+    bool isIdel() const
+    {
+        std::unique_lock<std::mutex> lock(_mtx);
+        return (_runningNum.load() == 0) && (_queTask.empty());
+    }
+
 private:
     CThreadPool(const CThreadPool&){}
 
@@ -89,6 +96,7 @@ private:
                     tp->_leaderId = std::thread::id();
                     task = std::move(tp->_queTask.front());
                     tp->_queTask.pop();
+                    ++ _runningNum;
                 }
                 else {
                     // Follower
@@ -102,6 +110,7 @@ private:
             tp->_condFollower.notify_one();
             // Worker
             task();
+            -- _runningNum;
         }
     }
 
@@ -110,6 +119,7 @@ private:
     std::queue<std::function<void()>> _queTask; // 任务队列
     std::mutex _mtx;                            // 互斥锁
     bool _isStop;                               // 是否停止（析构函数用）
+    std::atomic<int> _runningNum;               // 运行中线程数量
     std::condition_variable _condFollower;
     std::condition_variable _condLeader;
     std::thread::id _leaderId;
