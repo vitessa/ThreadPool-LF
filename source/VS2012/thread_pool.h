@@ -72,7 +72,7 @@ public:
         return res;
     }
 
-    bool isIdel() const
+    bool isIdel()
     {
         std::unique_lock<std::mutex> lock(_mtx);
         return (_runningNum.load() == 0) && (_queTask.empty());
@@ -96,7 +96,7 @@ private:
                     tp->_leaderId = std::thread::id();
                     task = std::move(tp->_queTask.front());
                     tp->_queTask.pop();
-                    ++ _runningNum;
+					++ tp->_runningNum;
                 }
                 else {
                     // Follower
@@ -110,7 +110,7 @@ private:
             tp->_condFollower.notify_one();
             // Worker
             task();
-            -- _runningNum;
+            -- tp->_runningNum;
         }
     }
 
