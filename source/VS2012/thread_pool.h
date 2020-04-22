@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <vector>
 #include <queue>
@@ -27,13 +27,12 @@ namespace vitessa
 class CThreadPool
 {
 public:
-    CThreadPool() : _isStop(false)
+    CThreadPool(int thread_num = 1) : _isStop(false)
     {
-        _vecThread.emplace_back(CThreadPool::route, this);
-    }
+        _mtx = std::make_shared<std::mutex>();
+        _condFollower = std::make_shared<std::condition_variable>();
+        _condLeader = std::make_shared<std::condition_variable>();
 
-    CThreadPool(int thread_num) : _isStop(false)
-    {
         for (int i=0; i<thread_num; ++i) {
             _vecThread.emplace_back(CThreadPool::route, this);
         }
@@ -41,15 +40,7 @@ public:
 
     ~CThreadPool()
     {
-        {
-            std::unique_lock<std::mutex> lock(_mtx);
-            _isStop = true;
-        }
-        _condFollower.notify_all();
-        _condLeader.notify_all();
-        for (std::thread& t : _vecThread) {
-            t.join();
-        }
+        destory();
     }
 
     template<typename Fn>
@@ -61,21 +52,42 @@ public:
         std::future<rt_type> res = task->get_future();
 
         {
-            std::unique_lock<std::mutex> lock(tp._mtx);
+            std::unique_lock<std::mutex> lock(*tp._mtx);
             if (tp._isStop) {
                 throw std::runtime_error("spawn a stoped thread pool.");
             }
             tp._queTask.emplace([task](){(*task)();});
         }
 
-        tp._condLeader.notify_one();
+        tp._condLeader->notify_one();
         return res;
     }
 
     bool isIdel()
     {
-        std::unique_lock<std::mutex> lock(_mtx);
+        std::unique_lock<std::mutex> lock(*_mtx);
         return (_runningNum.load() == 0) && (_queTask.empty());
+    }
+
+    void destory()
+    {
+        {
+            std::unique_lock<std::mutex> lock(*_mtx);
+            if (_isStop) {
+                return;
+            }
+            _isStop = true;
+        }
+        _condFollower->notify_all();
+        _condLeader->notify_all();
+        for (std::thread& t : _vecThread) {
+            t.join();
+        }
+
+        // 销毁指针
+        _mtx.reset();
+        _condFollower.reset();
+        _condLeader.reset();
     }
 
 private:
@@ -87,27 +99,27 @@ private:
         for (;;)
         {
             {   // lock_guard start
-                std::unique_lock<std::mutex> lock(tp->_mtx);
+                std::unique_lock<std::mutex> lock(*tp->_mtx);
                 if (tp->_leaderId == std::thread::id()) {
                     // Leader
                     tp->_leaderId = std::this_thread::get_id();
-                    tp->_condLeader.wait(lock, [tp]{return tp->_isStop || !tp->_queTask.empty();});
+                    tp->_condLeader->wait(lock, [tp]{return tp->_isStop || !tp->_queTask.empty();});
                     if (tp->_queTask.empty()) { return; }
                     tp->_leaderId = std::thread::id();
                     task = std::move(tp->_queTask.front());
                     tp->_queTask.pop();
-					++ tp->_runningNum;
+                    ++ tp->_runningNum;
                 }
                 else {
                     // Follower
-                    tp->_condFollower.wait(lock, [tp]{return tp->_isStop || tp->_leaderId==std::thread::id();});
+                    tp->_condFollower->wait(lock, [tp]{return tp->_isStop || tp->_leaderId==std::thread::id();});
                     if (tp->_isStop && tp->_queTask.empty()) {return;}
                     continue;
                 }
             }   // lock_guard end
 
             // Call Follower to become Leader
-            tp->_condFollower.notify_one();
+            tp->_condFollower->notify_one();
             // Worker
             task();
             -- tp->_runningNum;
@@ -115,14 +127,15 @@ private:
     }
 
 private:
-    std::vector<std::thread> _vecThread;        // 线程组
-    std::queue<std::function<void()>> _queTask; // 任务队列
-    std::mutex _mtx;                            // 互斥锁
-    bool _isStop;                               // 是否停止（析构函数用）
-    std::atomic<int> _runningNum;               // 运行中线程数量
-    std::condition_variable _condFollower;
-    std::condition_variable _condLeader;
+    std::vector<std::thread> _vecThread;                    // 线程组
+    std::queue<std::function<void()>> _queTask;             // 任务队列
+    std::shared_ptr<std::mutex> _mtx;                       // 互斥锁
+    std::shared_ptr<std::condition_variable> _condFollower; // 条件变量
+    std::shared_ptr<std::condition_variable> _condLeader;   // 条件变量
+    bool _isStop;                                           // 是否停止（析构函数用）
+    std::atomic<int> _runningNum;                           // 运行中线程数量
     std::thread::id _leaderId;
 };
+typedef std::shared_ptr<CThreadPool> ThreadPoolPtr;
 
 } // namespace vitessa
