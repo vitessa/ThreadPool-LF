@@ -71,13 +71,17 @@ public:
 
     void destory()
     {
-        {
+        if(_mtx) {
             std::unique_lock<std::mutex> lock(*_mtx);
             if (_isStop) {
                 return;
             }
             _isStop = true;
         }
+        else {
+            return;
+        }
+
         _condFollower->notify_all();
         _condLeader->notify_all();
         for (std::thread& t : _vecThread) {
