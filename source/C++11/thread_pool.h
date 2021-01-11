@@ -15,7 +15,7 @@ public:
     CThreadPool();
 
     // 创建一个有n个线程的线程池
-    CThreadPool(int thread_num);
+    CThreadPool(unsigned char thread_num);
 
     // 销毁线程池，会阻塞直到所有任务完成
     ~CThreadPool();
@@ -66,7 +66,7 @@ public:
     CPrioThreadPool();
 
     // 创建一个有n个线程的线程池
-    CPrioThreadPool(int thread_num);
+    CPrioThreadPool(unsigned char thread_num);
 
     // 销毁线程池，会阻塞直到所有任务完成
     ~CPrioThreadPool();
@@ -116,9 +116,9 @@ CThreadPool::CThreadPool() : _isStop(false)
     _vecThread.emplace_back( CThreadPool::route, this );
 }
 
-CThreadPool::CThreadPool(int thread_num) : _isStop(false)
+CThreadPool::CThreadPool(unsigned char thread_num) : _isStop(false)
 {
-    for (int i = 0; i < thread_num; ++ i) {
+    for (unsigned char i = 0; i < thread_num; ++ i) {
         _vecThread.emplace_back( CThreadPool::route, this );
     }
 }
@@ -195,9 +195,9 @@ CPrioThreadPool::CPrioThreadPool() : _isStop(false)
      _vecThread.emplace_back( CPrioThreadPool::route, this );
 }
 
-CPrioThreadPool::CPrioThreadPool(int thread_num) : _isStop(false)
+CPrioThreadPool::CPrioThreadPool(unsigned char thread_num) : _isStop(false)
 {
-    for (int i = 0; i < thread_num; ++ i) {
+    for (unsigned char i = 0; i < thread_num; ++ i) {
         _vecThread.emplace_back( CPrioThreadPool::route, this );
     }
 }
