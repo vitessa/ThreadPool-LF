@@ -45,8 +45,10 @@ private:
 
 class CPrioThreadPool
 {
+    struct GreaterPrioTask;
     using PrioTask = std::tuple< unsigned char, unsigned long long, std::function<void()> >;
-    
+    using QuePrioTask = std::priority_queue< PrioTask, std::vector<PrioTask>, GreaterPrioTask >;
+
     struct GreaterPrioTask
     {
         bool operator() (const PrioTask& lhs, const PrioTask& rhs) const
@@ -56,8 +58,6 @@ class CPrioThreadPool
                    std::get<0>(lhs) > std::get<0>(rhs) ;
         }
     };
-
-    using QuePrioTask = std::priority_queue< PrioTask, std::vector<PrioTask>, GreaterPrioTask >;
 
 public:
     // 创建一个只有一个线程的线程池
