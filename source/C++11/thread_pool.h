@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include <vector>
 #include <queue>
 #include <future>
@@ -46,7 +47,8 @@ private:
 class CPrioThreadPool
 {
     struct GreaterPrioTask;
-    using PrioTask = std::tuple< unsigned char, unsigned long long, std::function<void()> >;
+    using prio_t = unsigned char;
+    using PrioTask = std::tuple< prio_t, unsigned long long, std::function<void()> >;
     using QuePrioTask = std::priority_queue< PrioTask, std::vector<PrioTask>, GreaterPrioTask >;
 
     struct GreaterPrioTask
@@ -75,7 +77,7 @@ public:
     //     \ax    函数的参数
     //     \rt    返回future<return_type>
     template <class Fn, class... Args>
-    std::future<typename std::result_of<Fn(Args...)>::type> spawn(unsigned char prio, Fn&& fx, Args&&... ax);
+    std::future<typename std::result_of<Fn(Args...)>::type> spawn(prio_t prio, Fn&& fx, Args&&... ax);
 
     // 添加优先级为0的任务，线程安全
     //     \fx       要执行的函数
@@ -214,7 +216,7 @@ CPrioThreadPool::~CPrioThreadPool()
 }
 
 template <class Fn, class... Args>
-inline std::future<typename std::result_of<Fn(Args...)>::type> CPrioThreadPool::spawn(unsigned char prio, Fn&& fx, Args&&... ax)
+inline std::future<typename std::result_of<Fn(Args...)>::type> CPrioThreadPool::spawn(prio_t prio, Fn&& fx, Args&&... ax)
 {
     using return_type = typename std::result_of<Fn(Args...)>::type;
     auto task = std::make_shared< std::packaged_task<return_type()> > (
@@ -239,13 +241,13 @@ inline std::future<typename std::result_of<Fn(Args...)>::type> CPrioThreadPool::
 template <class Fn, class... Args>
 inline std::future<typename std::result_of<Fn(Args...)>::type> CPrioThreadPool::spawn_front(Fn&& fx, Args&&... ax)
 {
-    return this->spawn(0, fx, std::forward<Args>(ax)...);
+    return this->spawn((std::numeric_limits<prio_t>::min)(), fx, std::forward<Args>(ax)...);
 }
 
 template <class Fn, class... Args>
 inline std::future<typename std::result_of<Fn(Args...)>::type> CPrioThreadPool::spawn_back(Fn&& fx, Args&&... ax)
 {
-    return this->spawn(255, fx, std::forward<Args>(ax)...);
+    return this->spawn((std::numeric_limits<prio_t>::max)(), fx, std::forward<Args>(ax)...);
 }
 
 void CPrioThreadPool::route(CPrioThreadPool* tp)
