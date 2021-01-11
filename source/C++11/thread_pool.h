@@ -54,10 +54,10 @@ public:
     // 销毁线程池，会阻塞直到所有任务完成
     ~CThreadPool();
 
-    // * @spawn   向线程池中添加任务，线程安全
-    // *     \fx  要执行的函数
-    // *     \ax  函数的参数
-    // *     \rt  返回future<return_type>
+    // 向线程池中添加任务，线程安全
+    //     \fx  要执行的函数
+    //     \ax  函数的参数
+    //     \rt  返回future<return_type>
     template <class Fn, class... Args>
     std::future<typename std::result_of<Fn(Args...)>::type> spawn(Fn&& fx, Args&&... ax);
 
