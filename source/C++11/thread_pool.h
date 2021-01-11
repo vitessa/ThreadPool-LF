@@ -7,40 +7,6 @@
 
 namespace vitessa
 {
-/*
- * @class 带优先级的线程池
- *
- * @constructor CThreadPool()  创建一个只有一个线程的线程池
- * @constructor CThreadPool(n) 创建一个有n个线程的线程池
- * @destructor  ~CThreadPool() 销毁线程池，会阻塞直到所有任务完成
- *
- * @spawn     向线程池中添加任务，线程安全
- *     \prio  任务优先级，0为最高优先级，255为最低优先级
- *     \fx    要执行的函数
- *     \ax    函数的参数
- *     \rt    返回future<return_type>
- *
- * @spawn_front  添加优先级为0的任务，线程安全
- *     \fx       要执行的函数
- *     \ax       函数的参数
- *     \rt       返回future<return_type>
- *
- * @spawn_back   添加优先级为255的任务，线程安全
- *     \fx       要执行的函数
- *     \ax       函数的参数
- *     \rt       返回future<return_type>
- *
- ********************************************************************
- *
- * @note 优先级说明
- *
- *       每次向线程池添加任务，都会使任务队列重新排序:
- *           (1) 如果优先级不同，则按优先级高低排序
- *           (2) 如果优先级相同，则按任务添加先后排序
- *           (3) 排序使用堆排序算法（Heap Sort）
- */
-class CPrioThreadPool;
-
 
 class CThreadPool
 {
@@ -96,16 +62,34 @@ class CPrioThreadPool
     using QuePrioTask = std::priority_queue< PrioTask, std::vector<PrioTask>, GreaterPrioTask >;
 
 public:
+    // 创建一个只有一个线程的线程池
     CPrioThreadPool();
+
+    // 创建一个有n个线程的线程池
     CPrioThreadPool(int thread_num);
+
+    // 销毁线程池，会阻塞直到所有任务完成
     ~CPrioThreadPool();
 
+    // 向线程池中添加任务，线程安全
+    //     \prio  任务优先级，0为最高优先级，255为最低优先级
+    //     \fx    要执行的函数
+    //     \ax    函数的参数
+    //     \rt    返回future<return_type>
     template <class Fn, class... Args>
     std::future<typename std::result_of<Fn(Args...)>::type> spawn(unsigned char prio, Fn&& fx, Args&&... ax);
 
+    // 添加优先级为0的任务，线程安全
+    //     \fx       要执行的函数
+    //     \ax       函数的参数
+    //     \rt       返回future<return_type>
     template <class Fn, class... Args>
     std::future<typename std::result_of<Fn(Args...)>::type> spawn_front(Fn&& fx, Args&&... ax);
 
+    // 添加优先级为255的任务，线程安全
+    //     \fx       要执行的函数
+    //     \ax       函数的参数
+    //     \rt       返回future<return_type>
     template <class Fn, class... Args>
     std::future<typename std::result_of<Fn(Args...)>::type> spawn_back(Fn&& fx, Args&&... ax);
 
