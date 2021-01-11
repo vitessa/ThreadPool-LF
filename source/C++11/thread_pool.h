@@ -96,134 +96,25 @@ class CPrioThreadPool
     using QuePrioTask = std::priority_queue< PrioTask, std::vector<PrioTask>, GreaterPrioTask >;
 
 public:
-    CPrioThreadPool() : _isStop(false)
-    {
-        _vecThread.emplace_back( CPrioThreadPool::route, this );
-    }
-    CPrioThreadPool(int thread_num) : _isStop(false)
-    {
-        for (int i=0; i<thread_num; ++i) {
-            _vecThread.emplace_back( CPrioThreadPool::route, this );
-        }
-    }
-    ~CPrioThreadPool()
-    {
-        {
-            std::unique_lock<std::mutex> lock(_mtx);
-            _isStop = true;
-        }
-        _condFollower.notify_all();
-        _condLeader.notify_all();
-        for (std::thread& t : _vecThread) {
-            t.join();
-        }
-    }
+    CPrioThreadPool();
+    CPrioThreadPool(int thread_num);
+    ~CPrioThreadPool();
 
     template <class Fn, class... Args>
-    std::future<typename std::result_of<Fn(Args...)>::type> spawn(unsigned char prio, Fn&& fx, Args&&... ax)
-    {
-        using return_type = typename std::result_of<Fn(Args...)>::type;
-        auto task = std::make_shared< std::packaged_task<return_type()> > (
-            std::bind(std::forward<Fn>(fx), std::forward<Args>(ax)...) );
-        
-        std::future<return_type> res = task->get_future();
-        
-        {
-            std::unique_lock<std::mutex> lock(this->_mtx);
-            
-            if (this->_isStop) {
-                throw std::runtime_error("spawn a stoped thread pool.");
-            }
-            
-            this->_quePrioTask.emplace(prio, ++_cnt, [task](){(*task)();});
-        }
-        
-        this->_condLeader.notify_one();
-        return res;
-    }
+    std::future<typename std::result_of<Fn(Args...)>::type> spawn(unsigned char prio, Fn&& fx, Args&&... ax);
 
     template <class Fn, class... Args>
-    std::future<typename std::result_of<Fn(Args...)>::type> spawn_front(Fn&& fx, Args&&... ax)
-    {
-        using return_type = typename std::result_of<Fn(Args...)>::type;
-        auto task = std::make_shared< std::packaged_task<return_type()> > (
-            std::bind(std::forward<Fn>(fx), std::forward<Args>(ax)...) );
-        
-        std::future<return_type> res = task->get_future();
-        
-        {
-            std::unique_lock<std::mutex> lock(this->_mtx);
-            
-            if (this->_isStop) {
-                throw std::runtime_error("spawn a stoped thread pool.");
-            }
-            
-            this->_quePrioTask.emplace(0, ++_cnt, [task](){(*task)();});
-        }
-        
-        this->_condLeader.notify_one();
-        return res;
-    }
+    std::future<typename std::result_of<Fn(Args...)>::type> spawn_front(Fn&& fx, Args&&... ax);
 
     template <class Fn, class... Args>
-    std::future<typename std::result_of<Fn(Args...)>::type> spawn_back(Fn&& fx, Args&&... ax)
-    {
-        using return_type = typename std::result_of<Fn(Args...)>::type;
-        auto task = std::make_shared< std::packaged_task<return_type()> > (
-            std::bind(std::forward<Fn>(fx), std::forward<Args>(ax)...) );
-        
-        std::future<return_type> res = task->get_future();
-        
-        {
-            std::unique_lock<std::mutex> lock(this->_mtx);
-            
-            if (this->_isStop) {
-                throw std::runtime_error("spawn a stoped thread pool.");
-            }
-            
-            this->_quePrioTask.emplace(255, ++_cnt, [task](){(*task)();});
-        }
-        
-        this->_condLeader.notify_one();
-        return res;
-    }
+    std::future<typename std::result_of<Fn(Args...)>::type> spawn_back(Fn&& fx, Args&&... ax);
 
 private:
     // 禁止拷贝
     CPrioThreadPool(const CPrioThreadPool& rhs) = delete;
     // 线程原型
-    static void route(CPrioThreadPool* tp)
-    {
-        std::function<void()> task;
-        for (;;)
-        {
-            {   // lock_guard start
-                std::unique_lock<std::mutex> lock(tp->_mtx);
-                if (tp->_leaderId == std::thread::id()) { // Leader 
-                    tp->_leaderId = std::this_thread::get_id();
-                    tp->_condLeader.wait(lock, [tp]{return tp->_isStop || !tp->_quePrioTask.empty();});
-                    if (tp->_quePrioTask.empty()) {
-                        return;
-                    }
-                    tp->_leaderId = std::thread::id();
-                    task = std::move(std::get<2>(tp->_quePrioTask.top()));
-                    tp->_quePrioTask.pop();
-                }
-                else { // Follower
-                    tp->_condFollower.wait(lock, [tp]{return tp->_isStop || tp->_leaderId == std::thread::id();});
-                    if (tp->_isStop && tp->_quePrioTask.empty()) {
-                        return;
-                    }
-                    continue;
-                }
-            }   // lock_guard end
-            
-            //Call Follower to become Leader
-            tp->_condFollower.notify_one();
-            // Worker
-            task();
-        }
-    }
+    static void route(CPrioThreadPool* tp);
+
 private:
     std::vector<std::thread> _vecThread;             // 线程组
     QuePrioTask _quePrioTask;                        // 任务队列
@@ -302,6 +193,99 @@ void CThreadPool::route(CThreadPool* tp)
             else { // Follower
                 tp->_condFollower.wait(lock, [tp]{return tp->_isStop || tp->_leaderId == std::thread::id();});
                 if (tp->_isStop && tp->_queTask.empty()) {
+                    return;
+                }
+                continue;
+            }
+        }   // lock_guard end
+
+        //Call Follower to become Leader
+        tp->_condFollower.notify_one();
+        // Worker
+        task();
+    }
+}
+
+CPrioThreadPool::CPrioThreadPool() : _isStop(false)
+{
+     _vecThread.emplace_back( CPrioThreadPool::route, this );
+}
+
+CPrioThreadPool::CPrioThreadPool(int thread_num) : _isStop(false)
+{
+    for (int i = 0; i < thread_num; ++ i) {
+        _vecThread.emplace_back( CPrioThreadPool::route, this );
+    }
+}
+
+CPrioThreadPool::~CPrioThreadPool()
+{
+    {
+        std::unique_lock<std::mutex> lock(_mtx);
+        _isStop = true;
+    }
+    _condFollower.notify_all();
+    _condLeader.notify_all();
+    for (std::thread& t : _vecThread) {
+        t.join();
+    }
+}
+
+template <class Fn, class... Args>
+inline std::future<typename std::result_of<Fn(Args...)>::type> CPrioThreadPool::spawn(unsigned char prio, Fn&& fx, Args&&... ax)
+{
+    using return_type = typename std::result_of<Fn(Args...)>::type;
+    auto task = std::make_shared< std::packaged_task<return_type()> > (
+        std::bind(std::forward<Fn>(fx), std::forward<Args>(ax)...) );
+
+    std::future<return_type> res = task->get_future();
+
+    {
+        std::unique_lock<std::mutex> lock(this->_mtx);
+
+        if (this->_isStop) {
+            throw std::runtime_error("spawn a stoped thread pool.");
+        }
+
+        this->_quePrioTask.emplace(prio, ++_cnt, [task](){(*task)();});
+    }
+
+    this->_condLeader.notify_one();
+    return res;
+}
+
+template <class Fn, class... Args>
+inline std::future<typename std::result_of<Fn(Args...)>::type> CPrioThreadPool::spawn_front(Fn&& fx, Args&&... ax)
+{
+    return this->spawn(0, fx, std::forward<Args>(ax)...);
+}
+
+template <class Fn, class... Args>
+inline std::future<typename std::result_of<Fn(Args...)>::type> CPrioThreadPool::spawn_back(Fn&& fx, Args&&... ax)
+{
+    return this->spawn(255, fx, std::forward<Args>(ax)...);
+}
+
+void CPrioThreadPool::route(CPrioThreadPool* tp)
+{
+    std::function<void()> task;
+    for (;;)
+    {
+        {   // lock_guard start
+            std::unique_lock<std::mutex> lock(tp->_mtx);
+            if (tp->_leaderId == std::thread::id()) { // Leader 
+                tp->_leaderId = std::this_thread::get_id();
+                tp->_condLeader.wait(lock, [tp]{return tp->_isStop || !tp->_quePrioTask.empty();});
+                if (tp->_quePrioTask.empty()) {
+                    return;
+                }
+                tp->_leaderId = std::thread::id();
+                task = std::move(std::get<2>(tp->_quePrioTask.top()));
+                tp->_quePrioTask.pop();
+            }
+            else { // Follower
+                tp->_condFollower.wait(lock, [tp]{return tp->_isStop || tp->_leaderId == std::thread::id();});
+                if (tp->_isStop && tp->_quePrioTask.empty()) {
                     return;
                 }
                 continue;
