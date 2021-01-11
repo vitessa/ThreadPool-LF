@@ -106,7 +106,7 @@ public:
 
 private:
     // 禁止拷贝
-    CThreadPool(const CThreadPool& rhs){};
+    CThreadPool(const CThreadPool& rhs) = delete;
     // 线程原型
     static void route(CThreadPool* tp)
     {
@@ -263,7 +263,7 @@ public:
 
 private:
     // 禁止拷贝
-    CPrioThreadPool(const CPrioThreadPool& rhs){};
+    CPrioThreadPool(const CPrioThreadPool& rhs) = delete;
     // 线程原型
     static void route(CPrioThreadPool* tp)
     {
