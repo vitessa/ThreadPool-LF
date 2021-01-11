@@ -7,21 +7,6 @@
 
 namespace vitessa
 {
-
-/*
- * @class 线程池
- *
- * @constructor CThreadPool()   创建一个只有一个线程的线程池
- * @constructor CThreadPool(n)  创建一个有n个线程的线程池
- * @destructor  ~CThreadPool()  销毁线程池，会阻塞直到所有任务完成
- *
- * @spawn   向线程池中添加任务，线程安全
- *     \fx  要执行的函数
- *     \ax  函数的参数
- *     \rt  返回future<return_type>
- */
-class CThreadPool;
-
 /*
  * @class 带优先级的线程池
  *
@@ -60,10 +45,19 @@ class CPrioThreadPool;
 class CThreadPool
 {
 public:
+    // 创建一个只有一个线程的线程池
     CThreadPool();
+
+    // 创建一个有n个线程的线程池
     CThreadPool(int thread_num);
+
+    // 销毁线程池，会阻塞直到所有任务完成
     ~CThreadPool();
 
+    // * @spawn   向线程池中添加任务，线程安全
+    // *     \fx  要执行的函数
+    // *     \ax  函数的参数
+    // *     \rt  返回future<return_type>
     template <class Fn, class... Args>
     std::future<typename std::result_of<Fn(Args...)>::type> spawn(Fn&& fx, Args&&... ax);
 
