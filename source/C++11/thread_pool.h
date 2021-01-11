@@ -51,11 +51,9 @@ class CPrioThreadPool
     {
         bool operator() (const PrioTask& lhs, const PrioTask& rhs) const
         {
-            if (std::get<0>(lhs) == std::get<0>(rhs)) {
-                return std::get<1>(lhs) > std::get<1>(rhs);
-            }
-            
-            return std::get<0>(lhs) > std::get<0>(rhs);
+            return std::get<0>(lhs) == std::get<0>(rhs) ?
+                   std::get<1>(lhs) > std::get<1>(rhs) :
+                   std::get<0>(lhs) > std::get<0>(rhs) ;
         }
     };
 
