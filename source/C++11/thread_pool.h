@@ -111,19 +111,19 @@ private:
 };
 
 
-CThreadPool::CThreadPool() : _isStop(false)
+inline CThreadPool::CThreadPool() : _isStop(false)
 {
     _vecThread.emplace_back( CThreadPool::route, this );
 }
 
-CThreadPool::CThreadPool(unsigned char thread_num) : _isStop(false)
+inline CThreadPool::CThreadPool(unsigned char thread_num) : _isStop(false)
 {
     for (unsigned char i = 0; i < thread_num; ++ i) {
         _vecThread.emplace_back( CThreadPool::route, this );
     }
 }
 
-CThreadPool::~CThreadPool()
+inline CThreadPool::~CThreadPool()
 {
     {
         std::unique_lock<std::mutex> lock(_mtx);
@@ -157,7 +157,7 @@ inline std::future<typename std::result_of<Fn(Args...)>::type> CThreadPool::spaw
     return res;
 }
 
-void CThreadPool::route(CThreadPool* tp)
+inline void CThreadPool::route(CThreadPool* tp)
 {
     std::function<void()> task;
     for (;;)
@@ -190,19 +190,19 @@ void CThreadPool::route(CThreadPool* tp)
     }
 }
 
-CPrioThreadPool::CPrioThreadPool() : _isStop(false)
+inline CPrioThreadPool::CPrioThreadPool() : _isStop(false)
 {
      _vecThread.emplace_back( CPrioThreadPool::route, this );
 }
 
-CPrioThreadPool::CPrioThreadPool(unsigned char thread_num) : _isStop(false)
+inline CPrioThreadPool::CPrioThreadPool(unsigned char thread_num) : _isStop(false)
 {
     for (unsigned char i = 0; i < thread_num; ++ i) {
         _vecThread.emplace_back( CPrioThreadPool::route, this );
     }
 }
 
-CPrioThreadPool::~CPrioThreadPool()
+inline CPrioThreadPool::~CPrioThreadPool()
 {
     {
         std::unique_lock<std::mutex> lock(_mtx);
@@ -250,7 +250,7 @@ inline std::future<typename std::result_of<Fn(Args...)>::type> CPrioThreadPool::
     return this->spawn((std::numeric_limits<prio_t>::max)(), fx, std::forward<Args>(ax)...);
 }
 
-void CPrioThreadPool::route(CPrioThreadPool* tp)
+inline void CPrioThreadPool::route(CPrioThreadPool* tp)
 {
     std::function<void()> task;
     for (;;)
